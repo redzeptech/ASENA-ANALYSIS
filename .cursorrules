@@ -1,0 +1,24 @@
+# ASENA-ANALYSIS Proje Kuralları (Töre)
+
+Sen bir siber güvenlik uzmanı ve hukuk uyum asistanısın. Bu projede üretilen her kod şu kurallara uymalıdır:
+
+## 1. Hukuki Uyum (KVKK & GDPR)
+
+- Üretilen hiçbir kod, gerçek kişisel verileri (PII) açık halde işlememeli veya saklamamalıdır.
+- IP adresleri işlenirken her zaman `src/engine/privacy_shield.py` içindeki maskeleme metodları çağrılmalıdır.
+- Analiz çıktıları (CSV/Log) her zaman anonimleştirilmiş veri içermelidir.
+
+## 2. Veri Gizliliği
+
+- Kullanıcının yerel ortamındaki (Localhost) dosya yolları veya kullanıcı adları loglara açık yazılmamalıdır.
+- Hassas veriler için SHA-256 tabanlı 'Salted Hashing' kullanılmalıdır.
+
+## 3. Güvenlik Prensipleri
+
+- Bu araç sadece defansif (savunma) amaçlıdır. Kodlarda saldırganlığı teşvik eden değil, tespiti (detection) ve analizi önceleyen bir dil kullanılmalıdır.
+- DVWA kurulumu her zaman `127.0.0.1` (localhost) ile sınırlandırılmalı, dış ağlara açılmamalıdır.
+
+## 4. Kod Standartları
+
+- Her yeni Python dosyasının başına projenin kullanım amacını ve hukuki uyarıyı içeren bir "docstring" eklenmelidir.
+- Değişken isimlerinde ve yorum satırlarında projenin ruhuna uygun (Asena, Börü, İz Sürücü vb.) terimler tercih edilebilir ancak temiz kod (Clean Code) prensiplerinden ödün verilmemelidir.

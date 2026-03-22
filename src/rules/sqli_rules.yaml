@@ -1,0 +1,27 @@
+# ASENA-ANALYSIS — Korelasyon kuralları (Töre)
+# Parser çıktısı (ParsedAlert) üzerinde değerlendirilir; hunting_rules.yaml’dan ayrıdır.
+version: 1
+
+rules:
+  - id: ASENA-001
+    name: "Hızlı Keşif Denemesi"
+    condition:
+      threshold: 5
+      time_window: 60
+    action: "Medium Risk"
+
+  - id: ASENA-002
+    name: "Yüksek Şiddetli SQLi"
+    condition:
+      keywords: ["UNION", "SELECT", "INFORMATION_SCHEMA"]
+      keyword_match: all
+      http_status: 200
+    action: "Critical Alert"
+
+  - id: ASENA-003
+    name: "Körleme (Blind) SQLi Takibi"
+    condition:
+      keywords: ["SLEEP", "BENCHMARK"]
+      keyword_match: any
+      response_delay: 4
+    action: "High Risk"

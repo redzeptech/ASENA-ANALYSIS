@@ -1,0 +1,18 @@
+# ASENA-ANALYSIS — kilit dosyası (minimal: doğrudan bağımlılıklar)
+# Tam ortam kilidi için (tüm alt bağımlılıklarla):
+#   python scripts/lock_requirements.py
+# veya:
+#   pip install -r requirements.txt && pip freeze > requirements.lock.txt
+
+PyYAML==6.0.2
+pandas==2.2.3
+numpy==2.0.2
+scikit-learn==1.5.2
+watchgod==0.8.2
+anyio==4.7.0
+requests==2.32.3
+twilio==9.3.1
+streamlit==1.41.1
+plotly==5.24.1
+streamlit-autorefresh==1.0.1
+reportlab==4.2.5

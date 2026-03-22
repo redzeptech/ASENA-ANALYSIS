@@ -1,0 +1,72 @@
+Metadata-Version: 2.4
+Name: asena-analysis
+Version: 0.5.0
+Summary: Defansif HTTP log analizi ve timeline (KVKK uyumlu maskeleme).
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: PyYAML>=6.0.1
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: watchgod>=0.8
+Requires-Dist: anyio>=3.0
+Dynamic: license-file
+
+# ASENA-ANALYSIS
+
+**Savunma ve log analizi** aracı: HTTP combined loglarında YAML av kuralları (SQLi, XSS, …) ve KVKK/GDPR uyumlu `timeline.csv` üretimi.
+
+Bu proje **yetkisiz erişim veya saldırı üretimi** için değildir; yalnızca **yerel / izinli lab** (ör. DVWA) veya yetkili ortamlarda kullanılmalıdır. Ayrıntılar: [LEGAL.md](LEGAL.md) (TCK 243–244 bilgi notu; hukuki tavsiye değildir).
+
+## Repo yapısı
+
+```
+ASENA-ANALYSIS/
+├── .cursor/rules/asena-compliance.mdc  # Cursor hukuki uyumluluk kuralları
+├── docker/docker-compose.yml   # DVWA (lab)
+├── logs/access.log
+├── src/
+│   ├── engine/
+│   │   ├── privacy_shield.py  # Gizlilik kapısı (maske, timeline filtresi)
+│   │   ├── parser.py          # Log okuma; dışa aktarım Shield’a yönlendirilir
+│   │   └── correlator.py
+│   ├── rules/hunting_rules.yaml
+│   └── utils/ (exporter; privacy = re-export)
+├── data/timeline.csv
+├── asena.py
+├── LEGAL.md
+└── .env.example
+```
+
+## Kurulum
+
+```powershell
+pip install -r requirements.txt
+```
+
+## Analiz
+
+İlk çalıştırmada **yasal uyarı** gösterilir; analiz **onay** (`evet` / `yes`) olmadan başlamaz. Otomasyon için: `--i-accept` veya `ASENA_I_ACCEPT=1` (bkz. `.env.example`).
+
+**Lokalite:** Varsayılan olarak yalnızca istemci IP’si **`127.0.0.1`** veya **`::1`** olan satırlar işlenir (güvenli lab). İstisna: `--allow-remote-ips`.
+
+**Veri saklama:** `timeline.csv` / JSON’da **ham IP tutulmaz**; `privacy-mode none` olsa bile kaynak IP en az **subnet** ile maskelenir.
+
+```powershell
+python asena.py analyze --log logs/access.log --out data/timeline.csv --i-accept
+```
+
+- **Hash modu** (`h:…`): `python asena.py analyze --privacy-mode hash --salt YOUR_SECRET` veya `ASENA_SALT`.
+- **`--privacy-mode none`**: payload/path için tam maskeleme kapalı; **IP yine maskelenir**.
+
+İsteğe bağlı JSON: `python asena.py analyze --json data/timeline.json --i-accept`
+
+## DVWA (lab)
+
+```powershell
+docker compose -f docker/docker-compose.yml up -d
+```
+
+- **Arayüz:** `http://127.0.0.1:8081` (yalnızca localhost).
+- **Apache logları:** Konteyner `/var/log/apache2` → host `docker/logs/apache2` (canlı izleme / parser için `--log docker/logs/apache2/access.log` vb.).
+
+Servis adı: `asena-target`, ağ: `asena_net`.

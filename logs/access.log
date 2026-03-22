@@ -1,0 +1,7 @@
+127.0.0.1 - - [23/Mar/2025:10:00:01 +0000] "GET /api/health HTTP/1.1" 200 42
+127.0.0.1 - - [23/Mar/2025:10:01:15 +0000] "GET /search?q=hello HTTP/1.1" 200 5120
+127.0.0.1 - - [23/Mar/2025:10:02:20 +0000] "GET / HTTP/1.1" 200 612
+127.0.0.1 - - [23/Mar/2025:10:02:44 +0000] "GET /login?user=admin%27%20OR%201%3D1-- HTTP/1.1" 500 120
+127.0.0.1 - - [23/Mar/2025:10:03:01 +0000] "GET /items?id=1%20UNION%20SELECT%20null,username,password%20FROM%20users-- HTTP/1.1" 200 2048
+127.0.0.1 - - [23/Mar/2025:10:03:25 +0000] "GET /favicon.ico HTTP/1.1" 404 120
+127.0.0.1 - - [23/Mar/2025:10:05:00 +0000] "GET /static/app.js HTTP/1.1" 304 0

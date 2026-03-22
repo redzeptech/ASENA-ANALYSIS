@@ -1,6 +1,41 @@
-# Logs
-logs
+# =============================================================================
+# ASENA-ANALYSIS — özel veriler ve gereksiz kalıntılar (repoya gitmesin)
+# =============================================================================
+
+# Özel veriler
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Loglar ve data (hukuki gizlilik)
+logs/apache2/access.log
+docker/logs/apache2/access.log
+data/timeline.csv
+data/asena_audit.log
+data/asena_report.pdf
+data/asena_metrics.json
+data/executive_summary.md
+data/linkedin_post.txt
+
+# Sanal ortam
+venv/
+.venv/
+env/
+
+# Cursor yerel ayarları (isteğe bağlı; takım kuralları repoda tutulacaksa bu satırı kaldırın)
+.cursor/
+
+# -----------------------------------------------------------------------------
+# Genel (Node / önbellek / IDE)
+# -----------------------------------------------------------------------------
+
+# Log dosyaları (örnek iz istisna — proje kökü)
 *.log
+!logs/access.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -59,16 +94,11 @@ web_modules/
 # Optional REPL history
 .node_repl_history
 
-# Output of 'npm pack'
+# Output of `npm pack`
 *.tgz
 
 # Yarn Integrity file
 .yarn-integrity
-
-# dotenv environment variable files
-.env
-.env.*
-!.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

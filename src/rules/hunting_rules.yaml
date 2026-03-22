@@ -1,0 +1,89 @@
+# ASENA — Töre (Detection Rules). Kategori: sqli, xss, ...
+version: 1
+
+rules:
+  - id: sqli_union
+    category: sqli
+    severity: high
+    description: "UNION tabanlı enjeksiyon imzası"
+    pattern: "(?i)\\bunion\\s+select\\b"
+
+  - id: sqli_boolean
+    category: sqli
+    severity: medium
+    description: "Boolean koşul enjeksiyonu (OR/AND 1=1)"
+    pattern: "(?i)(?:\\bor\\b|\\band\\b)\\s*['\"]?\\d+['\"]?\\s*=\\s*['\"]?\\d+"
+
+  - id: sqli_comment
+    category: sqli
+    severity: low
+    description: "SQL yorum sözdizimi (-- veya #)"
+    pattern: "(?:--|#|%23)(?:\\s|$|['\"])"
+
+  - id: sqli_stacked
+    category: sqli
+    severity: high
+    description: "Çoklu ifade / noktalı virgül ile zincirleme"
+    pattern: ";\\s*(?:drop|insert|update|delete|exec|execute)\\b"
+
+  - id: sqli_sleep_benchmark
+    category: sqli
+    severity: high
+    description: "Zaman tabanlı (SLEEP/BENCHMARK/WAITFOR)"
+    pattern: "(?i)\\b(?:sleep|benchmark|waitfor\\s+delay)\\s*\\("
+
+  - id: sqli_info_schema
+    category: sqli
+    severity: medium
+    description: "information_schema sorgusu"
+    pattern: "(?i)\\binformation_schema\\b"
+
+  - id: sqli_hex_encoding
+    category: sqli
+    severity: low
+    description: "0x hex string enkodlaması"
+    pattern: "(?i)0x[0-9a-f]{8,}"
+
+  - id: sqli_quote_escape
+    category: sqli
+    severity: medium
+    description: "Tek tırnak kaçışı / klasik payload"
+    pattern: "(?:'|\\%27)\\s*(?:or|and|;|--|%23)"
+
+  # DVWA / lab: Aşama 1 — Keşif (ör. id=1' — hata üretmek için tek tırnak)
+  - id: sqli_recon_quote
+    category: sqli
+    severity: low
+    description: "Keşif: parametre değeri tek tırnakla biter (1' vb.)"
+    pattern: "(?i)(?:[?&]|^)[^=&\\s]+=\\s*\\d+\\s*'"
+
+  # Aşama 2 — ORDER BY 1-- (sütun sayısı denemesi; ORDER BY ayrıca süzgeçte de var)
+  - id: sqli_order_by_enum
+    category: sqli
+    severity: medium
+    description: "ORDER BY ile sütun/enumeration denemesi"
+    pattern: "(?i)\\border\\s+by\\s+\\d+"
+
+  - id: xss_script_tag
+    category: xss
+    severity: high
+    description: "script etiketi veya kapanış kaçışı"
+    pattern: "(?i)<\\s*/?\\s*script"
+
+  - id: xss_event_handler
+    category: xss
+    severity: medium
+    description: "HTML olay işleyicisi (onerror, onload...)"
+    pattern: "(?i)\\bon\\w+\\s*="
+
+  - id: xss_javascript_uri
+    category: xss
+    severity: medium
+    description: "javascript: URI"
+    pattern: "(?i)javascript\\s*:"
+
+  - id: xss_vbscript_uri
+    category: xss
+    severity: low
+    description: "vbscript: URI"
+    pattern: "(?i)vbscript\\s*:"

@@ -1,0 +1,22 @@
+# DVWA — lab; Apache logları host’a aktarılır (parser canlı okuma).
+# Kullanım (docker klasöründen): docker compose up -d
+# veya: docker compose -f docker/docker-compose.yml up -d  (yol: docker/logs/apache2)
+
+version: "3.8"
+
+services:
+  asena-target:
+    image: vulnerables/web-dvwa
+    container_name: asena_dvwa_lab
+    ports:
+      - "127.0.0.1:8081:80" # Sadece senin makinen erişebilir (Hukuki Önlem)
+    volumes:
+      # Logları dışarı aktararak Python parser'ın okumasını sağlıyoruz
+      - ./logs/apache2:/var/log/apache2
+    restart: unless-stopped
+    networks:
+      - asena_net
+
+networks:
+  asena_net:
+    driver: bridge
