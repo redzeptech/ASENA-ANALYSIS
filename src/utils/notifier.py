@@ -1,14 +1,16 @@
 # =============================================================================
-# ASENA-ANALYSIS — Twilio SMS / WhatsApp (KVKK uyumlu özet)
+# ASENA-ANALYSIS — Twilio SMS / WhatsApp + Telegram Bot (KVKK uyumlu özet)
 # =============================================================================
 """
-Haberci: Twilio SMS / WhatsApp.
+Haberci: Twilio SMS / WhatsApp ve **Telegram Bot** (``python-telegram-bot``).
 
 - **Kritik uyarılar:** yalnızca **saldırı tipi** + **risk skoru** (KVKK).
+- **Telegram:** risk skoru **90'dan büyük** (``> 90``) olduğunda gruba anlık mesaj;
+  ham IP / URL / payload **gönderilmez**.
 - **İlk selam:** ``send_initial_salute`` — kodda sabitlenmiş töre metni (PII yok);
   ``python asena.py watch`` / ``start`` girişinde otomatik; ayrıca ``python asena.py salute``.
 
-Ortam değişkenleri (Twilio Console); kimlik için **iki isim** desteklenir:
+**Twilio** — ortam değişkenleri (Console); kimlik için **iki isim** desteklenir:
 
 - ``TWILIO_ACCOUNT_SID`` veya ``TWILIO_SID``
 - ``TWILIO_AUTH_TOKEN`` veya ``TWILIO_TOKEN``
@@ -18,13 +20,25 @@ Ortam değişkenleri (Twilio Console); kimlik için **iki isim** desteklenir:
 
 İsteğe bağlı: ``TWILIO_SMS_ENABLED=1``, ``TWILIO_WHATSAPP_ENABLED=1`` (varsayılan: 1).
 
-``pip install twilio`` gerekir.
+**Telegram** — `@BotFather` token + hedef sohbet/grup ID:
+
+- ``ASENA_TELEGRAM_BOT_TOKEN`` veya ``TELEGRAM_BOT_TOKEN``
+- ``ASENA_TELEGRAM_CHAT_ID`` veya ``TELEGRAM_CHAT_ID`` (grup için genelde negatif ``-100...``)
+
+``pip install twilio python-telegram-bot`` gerekir (``requests`` zaten bağımlılıktadır).
+
+İsteğe bağlı **HTTP** yolu: ``AsenaTelegramBot.send_tg_notification(alert_text)`` —
+``sendMessage`` ile ``json`` gövdesi; token sohbet dışında tutulur, metin HTML kaçışlıdır.
 """
 
 from __future__ import annotations
 
+import asyncio
+import html
 import os
 from typing import Any, Literal, Optional
+
+import requests
 
 from utils.metrics import bump as _bump_metric
 from utils.privacy import AsenaPrivacyShield
@@ -48,6 +62,161 @@ def _truthy_env(name: str, default: bool = True) -> bool:
     if not v:
         return default
     return v in ("1", "true", "yes", "on", "evet")
+
+
+# Kritik Telegram bildirimi: yalnızca risk > 90 (korelasyon hibrit eşiği 90 ile uyumlu ayrım)
+_TELEGRAM_EXCLUSIVE_MIN_RISK = 90
+
+
+def _risk_exceeds_telegram_critical(score: Any) -> bool:
+    return _risk_int(score) > _TELEGRAM_EXCLUSIVE_MIN_RISK
+
+
+def _ptb_send_message_sync(token: str, chat_id: str, text: str) -> str:
+    """python-telegram-bot ile tek mesaj (senkron bağlamdan ``asyncio.run``)."""
+    try:
+        from telegram import Bot
+    except ImportError as e:
+        raise ImportError("Telegram için: pip install python-telegram-bot") from e
+
+    async def _run() -> str:
+        bot = Bot(token=token)
+        msg = await bot.send_message(chat_id=chat_id, text=text)
+        return str(msg.message_id)
+
+    return asyncio.run(_run())
+
+
+class AsenaTelegramBot:
+    """
+    Telegram Bot API — ``python-telegram-bot``.
+
+    Yalnızca **risk > 90** iken mesaj gönderir; içerik KVKK özetidir (tip + skor + kısa hukuk notu).
+    """
+
+    def __init__(
+        self,
+        shield: AsenaPrivacyShield | None = None,
+        *,
+        telegram_token: str | None = None,
+        chat_id: str | None = None,
+    ) -> None:
+        self._shield = shield or AsenaPrivacyShield()
+        self.token = (
+            (telegram_token or "").strip()
+            or os.environ.get("ASENA_TELEGRAM_BOT_TOKEN", "").strip()
+            or os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        )
+        self.chat_id = (
+            (chat_id or "").strip()
+            or os.environ.get("ASENA_TELEGRAM_CHAT_ID", "").strip()
+            or os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+        )
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.token and self.chat_id)
+
+    def send_tg_notification(self, alert_text: str) -> Optional[bool]:
+        """
+        Telegram Bot API — ``requests`` ile doğrudan ``sendMessage``.
+
+        Token ve sohbet ID **koda yazılmaz**; ``TELEGRAM_BOT_TOKEN`` /
+        ``ASENA_TELEGRAM_BOT_TOKEN`` ve ``TELEGRAM_CHAT_ID`` / ``ASENA_TELEGRAM_CHAT_ID``
+        ortam değişkenlerinden okunur.
+
+        ``alert_text`` HTML olarak kaçışlanır (PII bilinçli kullanım; yine de ham log göndermeyin).
+        Vurgu: düz metin başlık + ``parse_mode=HTML`` (Markdown yerine güvenli).
+        """
+        if not self.configured:
+            return None
+        raw = (alert_text or "").strip()
+        if not raw:
+            return None
+        safe = html.escape(raw[:3800])
+        text = f"🐺 <b>ASENA-ALARM</b> 🚨\n\n{safe}"
+        url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+        try:
+            r = requests.post(
+                url,
+                json={"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                _bump_metric("telegram_http_notifications")
+                self._shield.audit("Telegram HTTP: send_tg_notification gönderildi.")
+                return True
+            print(f"[-] Telegram HTTP yanıtı: {r.status_code} {r.text[:200]}")
+            return False
+        except Exception as e:
+            print(f"[-] Telegram HTTP gönderilemedi: {e}")
+            return False
+
+    def send_kvkk_critical_alert(self, *, attack_type: str, risk_score: int) -> Optional[str]:
+        """
+        Risk **90'dan büyükse** gruba KVKK uyumlu kritik özet gönderir.
+        ``<= 90`` ise sessizce ``None`` döner (Twilio yolu ayrıca devreye girebilir).
+        """
+        if not _risk_exceeds_telegram_critical(risk_score):
+            return None
+        if not self.configured:
+            return None
+        label = _kvkk_label(attack_type)
+        score = _risk_int(risk_score)
+        notice = self._shield.legal_notice_external_channel_brief()
+        text = (
+            "🐺 KRİTİK ALARM — ASENA (KVKK özet)\n"
+            f"Saldırı tipi: {label}\n"
+            f"Risk skoru: {score}\n"
+            f"{notice}\n"
+            "Detay: Dashboard (PII yok)."
+        )
+        try:
+            mid = _ptb_send_message_sync(self.token, self.chat_id, text)
+            _bump_metric("telegram_kvkk_alerts")
+            self._shield.audit("Telegram Bot: KVKK-safe kritik özet gönderildi (risk>90).")
+            return mid
+        except Exception as e:
+            print(f"[-] Telegram Bot mesajı gönderilemedi: {e}")
+            return None
+
+
+class AsenaNotifier:
+    """
+    Korelasyon kritik uyarıları: **Telegram** (``AsenaTelegramBot``, risk > 90).
+
+    Twilio SMS/WhatsApp, ``AsenaCorrelator`` içinde ``CRITICAL`` / hibrit dalında
+    ``AsenaMessenger`` ile ayrı tetiklenir.
+
+    Ortam: ``ASENA_TELEGRAM_BOT_TOKEN`` / ``TELEGRAM_BOT_TOKEN``,
+    ``ASENA_TELEGRAM_CHAT_ID`` / ``TELEGRAM_CHAT_ID``.
+    """
+
+    def __init__(
+        self,
+        telegram_token: str | None = None,
+        chat_id: str | None = None,
+        shield: AsenaPrivacyShield | None = None,
+    ) -> None:
+        self._bot = AsenaTelegramBot(shield=shield, telegram_token=telegram_token, chat_id=chat_id)
+
+    @property
+    def telegram_configured(self) -> bool:
+        return self._bot.configured
+
+    def send_kvkk_safe_alert(self, *, attack_type: str, risk_score: int) -> None:
+        """Telegram — yalnızca risk > 90 (``AsenaTelegramBot``)."""
+        self._bot.send_kvkk_critical_alert(attack_type=attack_type, risk_score=risk_score)
+
+    def send_tg_notification(self, alert_text: str) -> Optional[bool]:
+        """``AsenaTelegramBot.send_tg_notification`` — HTTP ``requests`` ile özel metin."""
+        return self._bot.send_tg_notification(alert_text)
+
+    def linkedin_alert(self, *, attack_type: str, risk_score: int) -> None:
+        """LinkedIn API yok — yalnızca yerel log; içerik KVKK ile uyumlu özet alanları."""
+        label = _kvkk_label(attack_type)
+        score = _risk_int(risk_score)
+        print(f"[LOG] LinkedIn özeti (yerel): tip={label!r} risk={score}")
 
 
 class AsenaMessenger:

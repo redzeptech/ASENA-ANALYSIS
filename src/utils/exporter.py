@@ -431,6 +431,7 @@ def export_executive_summary_md(
         f"| Twilio SMS (toplam) | {metrics.get('twilio_sms_total', 0)} |",
         f"| Twilio WhatsApp (toplam) | {metrics.get('twilio_whatsapp_total', 0)} |",
         f"| Telegram (KVKK özet uyarı) | {metrics.get('telegram_kvkk_alerts', 0)} |",
+        f"| Telegram (HTTP özel bildirim) | {metrics.get('telegram_http_notifications', 0)} |",
         f"| Töre selamı (SMS) | {metrics.get('initial_salute_sms', 0)} |",
         f"| Töre selamı (WhatsApp) | {metrics.get('initial_salute_whatsapp', 0)} |",
         "",

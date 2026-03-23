@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "asena-analysis"
-version = "0.5.0"
+version = "1.0.0"
 description = "Defansif HTTP log analizi ve timeline (KVKK uyumlu maskeleme)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,6 +17,7 @@ dependencies = [
   "anyio>=3.0",
   "requests>=2.31.0",
   "twilio>=8.10.0",
+  "python-telegram-bot>=21.0",
   "streamlit>=1.33.0",
   "plotly>=5.18.0",
   "streamlit-autorefresh>=1.0.1",

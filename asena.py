@@ -23,7 +23,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
-__version__ = "0.5.0"
+__version__ = "1.0.0"
 
 ROOT = Path(__file__).resolve().parent
 # Geliştirme: repo kökünde ``src/engine``; kurulum: ``site-packages/engine`` ile yan yana

@@ -1,0 +1,6 @@
+# GitHub repo "About" > Topics — yapıştırılacak etiketler (arama / siber güvenlik görünürlüğü)
+# Web: https://github.com/<owner>/<repo> → sağ üst About → ⚙ Settings veya doğrudan Topics düzenleme
+#
+# Tek satır (boşlukla ayrılmış — GitHub arayüzüne virgülle veya tek tek ekleyebilirsiniz):
+
+cybersecurity intrusion-detection machine-learning siem python blue-team soc-analysis kvkk gdpr-compliance threat-hunting

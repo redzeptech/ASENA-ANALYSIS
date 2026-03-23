@@ -24,101 +24,14 @@ from pathlib import Path
 from typing import Any, Literal, Optional
 
 import pandas as pd
-import requests
+
+from utils.notifier import AsenaMessenger, AsenaNotifier
 
 from .parser import LogLine, ParsedAlert, RuleHit, payload_display
 
 _SEVERITY_ORDER = {"low": 1, "medium": 2, "high": 3}
 _HYBRID_NUMERIC_THRESHOLD = 90
 _PAYLOAD_IF_WINDOW_MAX = 64
-
-
-def _kvkk_safe_attack_type_label(raw: str) -> str:
-    """Dış iletim için kısa etiket; kullanıcı içeriği / URL taşımaz."""
-    s = " ".join((raw or "").split())[:120]
-    return s if s else "Tanımsız"
-
-
-class AsenaNotifier:
-    """
-    Töre / korelasyon kritik uyarıları için isteğe bağlı Telegram bildirimi.
-
-    Kimlik bilgileri **asla** koda gömülmez; ortam değişkenleri:
-
-    - ``ASENA_TELEGRAM_BOT_TOKEN`` veya ``TELEGRAM_BOT_TOKEN``
-    - ``ASENA_TELEGRAM_CHAT_ID`` veya ``TELEGRAM_CHAT_ID``
-
-    **KVKK / GDPR (dış sunucular — Telegram, Twilio vb.):**
-
-    - Gerçek istemci IP **gönderilmez** (yalnızca yerel analizde maskeli kullanım).
-    - İstek gövdesi, sorgu, kullanıcı adı / parola **asla** dışarı aktarılmaz.
-    - Uzak API'ye yalnızca **saldırı tipi** (kısa sabit etiket) ve **risk skoru** (sayı) gider.
-
-    Twilio (SMS/WhatsApp) ``check_correlation`` içinde ``CRITICAL`` dalında
-    ``AsenaMessenger.send_sms`` / ``send_whatsapp`` ile tetiklenir; kimlik:
-    ``TWILIO_ACCOUNT_SID`` / ``TWILIO_SID``, ``TWILIO_AUTH_TOKEN`` / ``TWILIO_TOKEN``;
-    ayrıca ``TWILIO_FROM_SMS``, ``TWILIO_TO_NUMBER``, ``TWILIO_FROM_WHATSAPP``.
-    Ayrıntı: ``utils/notifier.py``.
-    """
-
-    def __init__(
-        self,
-        telegram_token: str | None = None,
-        chat_id: str | None = None,
-    ) -> None:
-        self.telegram_token = (
-            (telegram_token or "").strip()
-            or os.environ.get("ASENA_TELEGRAM_BOT_TOKEN", "").strip()
-            or os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-        )
-        self.chat_id = (
-            (chat_id or "").strip()
-            or os.environ.get("ASENA_TELEGRAM_CHAT_ID", "").strip()
-            or os.environ.get("TELEGRAM_CHAT_ID", "").strip()
-        )
-
-    @property
-    def telegram_configured(self) -> bool:
-        return bool(self.telegram_token and self.chat_id)
-
-    def send_kvkk_safe_alert(self, *, attack_type: str, risk_score: int) -> None:
-        """
-        Yalnızca **Telegram** — özet: **saldırı tipi** + **risk skoru**.
-        Twilio SMS/WhatsApp, ``AsenaCorrelator`` içinde ``CRITICAL`` dalında ayrı tetiklenir.
-        """
-        label = _kvkk_safe_attack_type_label(attack_type)
-        try:
-            score = int(risk_score)
-        except (TypeError, ValueError):
-            score = 0
-        score = max(0, min(score, 999))
-
-        if self.telegram_configured:
-            text = (
-                "🐺 KRİTİK ALARM — ASENA (KVKK özet)\n"
-                f"Saldırı tipi: {label}\n"
-                f"Risk skoru: {score}"
-            )
-            url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-            body = {"chat_id": self.chat_id, "text": text}
-            try:
-                r = requests.post(url, json=body, timeout=15)
-                if r.status_code == 200:
-                    from utils.metrics import bump
-
-                    bump("telegram_kvkk_alerts")
-            except Exception as e:
-                print(f"[-] Bildirim gönderilemedi: {e}")
-
-    def linkedin_alert(self, *, attack_type: str, risk_score: int) -> None:
-        """LinkedIn API yok — yalnızca yerel log; içerik KVKK ile uyumlu özet alanları."""
-        label = _kvkk_safe_attack_type_label(attack_type)
-        try:
-            score = int(risk_score)
-        except (TypeError, ValueError):
-            score = 0
-        score = max(0, min(score, 999))
-        print(f"[LOG] LinkedIn özeti (yerel): tip={label!r} risk={score}")
 
 
 @dataclass(frozen=True)
@@ -426,8 +339,6 @@ class AsenaCorrelator:
         notifier: AsenaNotifier | None = None,
         messenger: Any | None = None,
     ) -> None:
-        from utils.notifier import AsenaMessenger
-
         self.output_file = Path(output_file)
         self.events: list[dict[str, Any]] = []
         self.ip_history: defaultdict[str, list[float]] = defaultdict(list)

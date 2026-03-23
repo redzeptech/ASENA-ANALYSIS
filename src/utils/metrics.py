@@ -13,6 +13,7 @@ _DEFAULT: dict[str, int] = {
     "twilio_sms_total": 0,
     "twilio_whatsapp_total": 0,
     "telegram_kvkk_alerts": 0,
+    "telegram_http_notifications": 0,
     "initial_salute_sms": 0,
     "initial_salute_whatsapp": 0,
 }
